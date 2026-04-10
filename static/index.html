@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>钓鱼邮件检测 - 企业内部</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --accent: #3b82f6;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --safe: #22c55e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header svg { width: 28px; height: 28px; fill: var(--accent); }
+  .header h1 { font-size: 18px; font-weight: 600; }
+  .header span { color: var(--text-dim); font-size: 13px; margin-left: auto; }
+
+  /* Main */
+  .container {
+    max-width: 720px;
+    margin: 32px auto;
+    padding: 0 16px;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 16px;
+    background: var(--card);
+    border-radius: 10px;
+    padding: 4px;
+  }
+  .tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--text-dim);
+    transition: all .2s;
+    border: none;
+    background: none;
+  }
+  .tab.active {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  /* Input Areas */
+  .input-panel { display: none; }
+  .input-panel.active { display: block; }
+
+  textarea {
+    width: 100%;
+    height: 220px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    padding: 16px;
+    font-size: 14px;
+    line-height: 1.6;
+    resize: vertical;
+    font-family: inherit;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  textarea::placeholder { color: var(--text-dim); }
+
+  /* Drop Zone */
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+    background: var(--card);
+  }
+  .dropzone:hover, .dropzone.dragover {
+    border-color: var(--accent);
+    background: rgba(59,130,246,0.05);
+  }
+  .dropzone svg { width: 48px; height: 48px; fill: var(--text-dim); margin-bottom: 12px; }
+  .dropzone p { color: var(--text-dim); font-size: 14px; margin-top: 8px; }
+  .dropzone .hint { font-size: 12px; color: var(--text-dim); opacity: 0.6; margin-top: 4px; }
+
+  /* Image Preview */
+  .preview-wrap {
+    display: none;
+    margin-top: 12px;
+    position: relative;
+  }
+  .preview-wrap img {
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .preview-wrap .remove-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(0,0,0,0.7);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Submit */
+  .submit-btn {
+    width: 100%;
+    margin-top: 16px;
+    padding: 14px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .2s;
+  }
+  .submit-btn:hover { opacity: 0.9; }
+  .submit-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Loading */
+  .loading {
+    display: none;
+    text-align: center;
+    padding: 32px;
+  }
+  .loading.active { display: block; }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading p { color: var(--text-dim); font-size: 14px; }
+
+  /* Result */
+  .result {
+    display: none;
+    margin-top: 24px;
+    animation: fadeIn 0.3s;
+  }
+  .result.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; } }
+
+  .risk-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+  .risk-badge.high { background: rgba(239,68,68,0.15); color: var(--danger); border: 1px solid rgba(239,68,68,0.3); }
+  .risk-badge.medium { background: rgba(245,158,11,0.15); color: var(--warning); border: 1px solid rgba(245,158,11,0.3); }
+  .risk-badge.safe { background: rgba(34,197,94,0.15); color: var(--safe); border: 1px solid rgba(34,197,94,0.3); }
+
+  .confidence {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+  }
+  .confidence strong { color: var(--text); }
+
+  .summary-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .section-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 16px 0 8px;
+    color: var(--text-dim);
+  }
+
+  .indicator {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .indicator .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-top: 6px;
+    flex-shrink: 0;
+  }
+  .indicator .dot.high { background: var(--danger); }
+  .indicator .dot.medium { background: var(--warning); }
+  .indicator .dot.low { background: var(--safe); }
+  .indicator .ind-type {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .indicator .ind-detail {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  .recommendation {
+    background: rgba(59,130,246,0.08);
+    border: 1px solid rgba(59,130,246,0.2);
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 16px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .reset-btn {
+    width: 100%;
+    margin-top: 16px;
+    padding: 12px;
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .reset-btn:hover { border-color: var(--text-dim); }
+
+  .error-msg {
+    display: none;
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 16px;
+    color: var(--danger);
+    font-size: 14px;
+  }
+  .error-msg.active { display: block; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <svg viewBox="0 0 24 24"><path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5zm-1 14l-4-4 1.41-1.41L11 13.17l6.59-6.59L19 8l-8 8z"/></svg>
+  <h1>钓鱼邮件检测</h1>
+  <span>企业内部 - 信息安全</span>
+</div>
+
+<div class="container">
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" data-tab="text">粘贴邮件文字</button>
+    <button class="tab" data-tab="image">上传邮件截图</button>
+  </div>
+
+  <!-- Text Input -->
+  <div class="input-panel active" id="panel-text">
+    <textarea id="emailText" placeholder="将邮件全文粘贴到这里...&#10;&#10;建议包含：发件人地址、邮件主题、正文内容、链接等信息"></textarea>
+  </div>
+
+  <!-- Image Input -->
+  <div class="input-panel" id="panel-image">
+    <div class="dropzone" id="dropzone">
+      <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+      <p>拖拽图片到这里，或点击选择文件</p>
+      <p class="hint">也可以直接 Ctrl+V 粘贴截图</p>
+      <input type="file" id="fileInput" accept="image/*" hidden>
+    </div>
+    <div class="preview-wrap" id="previewWrap">
+      <img id="previewImg" alt="预览">
+      <button class="remove-btn" id="removeBtn">&times;</button>
+    </div>
+  </div>
+
+  <!-- Submit -->
+  <button class="submit-btn" id="submitBtn">开始检测</button>
+
+  <!-- Loading -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p>正在分析邮件内容，请稍候...</p>
+  </div>
+
+  <!-- Error -->
+  <div class="error-msg" id="errorMsg"></div>
+
+  <!-- Result -->
+  <div class="result" id="result">
+    <div class="risk-badge" id="riskBadge"></div>
+    <div class="confidence" id="confidence"></div>
+    <div class="summary-box" id="summary"></div>
+    <div class="section-title">检测到的风险指标</div>
+    <div id="indicators"></div>
+    <div class="recommendation" id="recommendation"></div>
+    <button class="reset-btn" id="resetBtn">重新检测</button>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+let selectedFile = null;
+
+// --- Tab switching ---
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.input-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    $(`#panel-${tab.dataset.tab}`).classList.add('active');
+  });
+});
+
+// --- Dropzone ---
+const dropzone = $('#dropzone');
+const fileInput = $('#fileInput');
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length) handleFile(fileInput.files[0]);
+});
+
+// --- Clipboard paste (Ctrl+V) ---
+document.addEventListener('paste', e => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      // Switch to image tab
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.input-panel').forEach(p => p.classList.remove('active'));
+      document.querySelector('[data-tab="image"]').classList.add('active');
+      $('#panel-image').classList.add('active');
+      handleFile(item.getAsFile());
+      return;
+    }
+  }
+});
+
+function handleFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  selectedFile = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    $('#previewImg').src = e.target.result;
+    $('#previewWrap').style.display = 'block';
+    dropzone.style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+$('#removeBtn').addEventListener('click', () => {
+  selectedFile = null;
+  fileInput.value = '';
+  $('#previewWrap').style.display = 'none';
+  dropzone.style.display = 'block';
+});
+
+// --- Submit ---
+$('#submitBtn').addEventListener('click', async () => {
+  const text = $('#emailText').value.trim();
+  const activeTab = document.querySelector('.tab.active').dataset.tab;
+
+  if (activeTab === 'text' && !text) {
+    showError('请先粘贴邮件内容');
+    return;
+  }
+  if (activeTab === 'image' && !selectedFile) {
+    showError('请先上传或粘贴邮件截图');
+    return;
+  }
+
+  // Prepare form data
+  const formData = new FormData();
+  if (text) formData.append('text', text);
+  if (selectedFile) formData.append('image', selectedFile);
+
+  // Show loading
+  $('#submitBtn').style.display = 'none';
+  $('#loading').classList.add('active');
+  $('#result').classList.remove('active');
+  $('#errorMsg').classList.remove('active');
+
+  try {
+    const resp = await fetch('/api/analyze', { method: 'POST', body: formData });
+    const data = await resp.json();
+
+    if (!resp.ok || data.error) {
+      showError(data.error || '分析失败，请重试');
+      return;
+    }
+
+    renderResult(data.data);
+  } catch (err) {
+    showError('网络错误，请检查服务是否运行');
+  } finally {
+    $('#loading').classList.remove('active');
+    $('#submitBtn').style.display = 'block';
+  }
+});
+
+function showError(msg) {
+  $('#errorMsg').textContent = msg;
+  $('#errorMsg').classList.add('active');
+  $('#loading').classList.remove('active');
+  $('#submitBtn').style.display = 'block';
+}
+
+// --- Render result ---
+function renderResult(data) {
+  // Risk badge
+  const badge = $('#riskBadge');
+  const riskMap = {
+    '高危': { cls: 'high', icon: '!!', label: '高危 - 钓鱼邮件' },
+    '可疑': { cls: 'medium', icon: '!', label: '可疑 - 需要警惕' },
+    '安全': { cls: 'safe', icon: '\u2713', label: '安全 - 未发现风险' },
+  };
+  const risk = riskMap[data.risk_level] || riskMap['可疑'];
+  badge.className = `risk-badge ${risk.cls}`;
+  badge.textContent = risk.label;
+
+  // Confidence
+  $('#confidence').innerHTML = `置信度: <strong>${data.confidence}%</strong>`;
+
+  // Summary
+  $('#summary').textContent = data.summary;
+
+  // Indicators
+  const indWrap = $('#indicators');
+  indWrap.innerHTML = '';
+  if (data.indicators && data.indicators.length) {
+    data.indicators.forEach(ind => {
+      indWrap.innerHTML += `
+        <div class="indicator">
+          <div class="dot ${ind.severity || 'medium'}"></div>
+          <div>
+            <div class="ind-type">${ind.type}</div>
+            <div class="ind-detail">${ind.detail}</div>
+          </div>
+        </div>`;
+    });
+  }
+
+  // Recommendation
+  $('#recommendation').textContent = data.recommendation;
+
+  // Show
+  $('#result').classList.add('active');
+  $('#errorMsg').classList.remove('active');
+}
+
+// --- Reset ---
+$('#resetBtn').addEventListener('click', () => {
+  $('#result').classList.remove('active');
+  $('#emailText').value = '';
+  selectedFile = null;
+  fileInput.value = '';
+  $('#previewWrap').style.display = 'none';
+  dropzone.style.display = 'block';
+});
+</script>
+</body>
+</html>
