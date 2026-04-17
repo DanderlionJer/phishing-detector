@@ -25,16 +25,25 @@ SHORTENER_HOSTS = frozenset(
     }
 )
 
-URGENCY_PATTERNS = [
-    (
-        r"\u7acb\u5373|\u9a6c\u4e0a|\u5c3d\u5feb|24\s*\u5c0f\u65f6\u5185|\u4eca\u65e5\u5185|\u9650\u65f6|\u903e\u671f|\u5c06\u88ab\u51bb\u7ed3|\u6c38\u4e45\u505c\u7528|\u5c01\u53f7",
-        "urgency_threat_zh",
-    ),
-    (
-        r"verify your account|act now|urgent|immediately|suspend|locked",
-        "urgency_threat_en",
-    ),
-]
+# English urgency: avoid legal-footer false positives (e.g. immediately delete)
+URGENCY_ZH_PATTERN = (
+    r"\u7acb\u5373|\u9a6c\u4e0a|\u5c3d\u5feb|24\s*\u5c0f\u65f6\u5185|\u4eca\u65e5\u5185|\u9650\u65f6|\u903e\u671f|\u5c06\u88ab\u51bb\u7ed3|\u6c38\u4e45\u505c\u7528|\u5c01\u53f7",
+    "urgency_threat_zh",
+)
+URGENCY_EN_PATTERN = (
+    r"(?i)\b("
+    r"verify\s+your\s+account|"
+    r"click\s+(?:here|below|this\s+link)\s+to\s+(?:verify|confirm)|"
+    r"act\s+now|"
+    r"urgent\s+action\s+(?:required|needed)|"
+    r"your\s+account\s+(?:has\s+been|will\s+be)\s+(?:suspended|locked|frozen)|"
+    r"(?:unauthorized|unusual)\s+(?:access|activity|login|sign-?in)|"
+    r"within\s+24\s*hours|"
+    r"last\s+chance\s+to|"
+    r"account\s+(?:verification|security)\s+alert"
+    r")\b",
+    "urgency_threat_en",
+)
 CREDENTIAL_PATTERNS = [
     (
         r"\u5bc6\u7801|\u53e3\u4ee4|\u9a8c\u8bc1\u7801|\u52a8\u6001\u7801|\u94f6\u884c\u5361|\u4fe1\u7528\u5361|\u8eab\u4efd\u8bc1\u53f7|\u793e\u4fdd\u5361|\u8f6c\u8d26|\u6c47\u6b3e|\u6536\u6b3e\u8d26\u6237",
@@ -47,7 +56,7 @@ CREDENTIAL_PATTERNS = [
 ]
 
 ATTACH_PATTERN = re.compile(
-    r"\.(exe|scr|bat|cmd|com|pif|vbs|js|jar|ps1|hta|msi|dll|zip|rar|7z|html?|docm|xlsm)\b",
+    r"\.(exe|scr|bat|cmd|pif|vbs|js|jar|ps1|hta|msi|dll|zip|rar|7z|html?|docm|xlsm)\b",
     re.I,
 )
 
@@ -164,19 +173,50 @@ def _analyze_single_url(url: str) -> list[dict[str, Any]]:
     return indicators
 
 
+def _strip_standard_email_disclaimer(text: str) -> str:
+    """Truncate common English legal disclaimer blocks before urgency scan."""
+    if not text:
+        return ""
+    lower = text.lower()
+    markers = (
+        "this email message and any attachments",
+        "intended solely for the use of the addressee",
+        "if you are not the intended recipient",
+        "if you have received this email in error",
+        "confidentiality notice",
+        "privileged and confidential",
+    )
+    cut = len(text)
+    for m in markers:
+        idx = lower.find(m)
+        if idx != -1:
+            cut = min(cut, idx)
+    return text[:cut] if cut < len(text) else text
+
+
 def _keyword_indicators(text: str) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     t = text or ""
-    for pat, _key in URGENCY_PATTERNS:
-        if re.search(pat, t, re.I):
+    pat_zh, _kz = URGENCY_ZH_PATTERN
+    if re.search(pat_zh, t, re.I):
+        out.append(
+            {
+                "type": "\u7d27\u8feb/\u6050\u5413\u8bdd\u672f",
+                "detail": "\u6b63\u6587\u51fa\u73b0\u5236\u9020\u7d27\u8feb\u611f\u6216\u5a01\u80c1\u7684\u7528\u8bed\u3002",
+                "severity": "medium",
+            }
+        )
+    else:
+        pat_en, _ke = URGENCY_EN_PATTERN
+        t_en = _strip_standard_email_disclaimer(t)
+        if re.search(pat_en, t_en, re.I):
             out.append(
                 {
                     "type": "\u7d27\u8feb/\u6050\u5413\u8bdd\u672f",
-                    "detail": "\u6b63\u6587\u51fa\u73b0\u5236\u9020\u7d27\u8feb\u611f\u6216\u5a01\u80c1\u7684\u7528\u8bed\u3002",
+                    "detail": "\u6b63\u6587\uff08\u5df2\u6392\u9664\u5e38\u89c1\u82f1\u6587\u58f0\u660e\u5c3e\u90e8\uff09\u51fa\u73b0\u7d27\u8feb/\u6050\u5413\u7c7b\u8868\u8ff0\u3002",
                     "severity": "medium",
                 }
             )
-            break
     for pat, _key in CREDENTIAL_PATTERNS:
         if re.search(pat, t, re.I):
             out.append(
@@ -259,6 +299,34 @@ def collect_missing_info(
     return hints
 
 
+def _collect_legitimacy_hints(text: str) -> list[str]:
+    """Heuristics that often indicate legitimate business mail (for LLM context)."""
+    hints: list[str] = []
+    t = text or ""
+    if (
+        re.search(r"\u53d1\u4ef6\u4eba\s*[:：]", t)
+        and re.search(r"\u53d1\u9001\u65f6\u95f4\s*[:：]", t)
+        and re.search(r"(\u6536\u4ef6\u4eba|\u6284\u9001)\s*[:：]", t)
+    ):
+        hints.append(
+            "\u68c0\u6d4b\u5230\u90ae\u4ef6\u5ba2\u6237\u7aef\u5f15\u7528\uff08\u53d1\u4ef6\u4eba/\u53d1\u9001\u65f6\u95f4/\u6536\u4ef6\u4eba\u6216\u6284\u9001\uff09\uff0c\u591a\u89c1\u4e8e\u6b63\u5e38\u5f80\u6765\u6216\u56de\u590d\u3002"
+        )
+    if re.search(
+        r"(\u8d44\u6599|\u9644\u4ef6).{0,24}(\u8bf7\u67e5\u6536|\u8bf7\u9605|\u4f9b\u53c2\u8003)",
+        t,
+    ):
+        hints.append(
+            "\u542b\u201c\u8d44\u6599/\u9644\u4ef6+\u8bf7\u67e5\u6536\u201d\u7b49 B2B \u5e38\u89c1\u8868\u8ff0\uff0c\u5355\u72ec\u4e0d\u5e94\u4f5c\u4e3a\u9493\u9c7c\u94c1\u8bc1\u3002"
+        )
+    if re.search(r"\bdear\b", t, re.I) and re.search(
+        r"\b(thanks|thank you|best regards)\b", t, re.I
+    ):
+        hints.append(
+            "\u542b\u5e38\u89c1\u5546\u52a1\u79f0\u547c\u4e0e\u8c22\u610f\uff0c\u9700\u7ed3\u5408\u53d1\u4ef6\u57df\u4e0e\u4e1a\u52a1\u573a\u666f\u3002"
+        )
+    return hints
+
+
 def run_rule_engine(
     text: str,
     *,
@@ -316,19 +384,27 @@ def run_rule_engine(
         subject=subject,
     )
 
+    legitimacy_hints = _collect_legitimacy_hints(combined)
     return {
         "indicators": deduped,
         "missing_info": missing,
         "urls": url_meta,
         "rule_risk_hint": rule_risk_hint,
         "url_count": len(url_list),
+        "legitimacy_hints": legitimacy_hints,
     }
 
 
-def reconcile_display_risk(llm_level: str, rule_hint: str) -> tuple[str, str | None]:
+def reconcile_display_risk(
+    llm_level: str,
+    rule_hint: str,
+    *,
+    legitimacy_hints: list[str] | None = None,
+) -> tuple[str, str | None]:
     order = {"\u5b89\u5168": 0, "\u53ef\u7591": 1, "\u9ad8\u5371": 2}
     rl = order.get(llm_level, 1)
     rh = {"none": 0, "low": 0, "medium": 1, "high": 2}.get(rule_hint, 0)
+    legit = legitimacy_hints or []
 
     if rh >= 2 and rl <= 0:
         return (
@@ -341,6 +417,11 @@ def reconcile_display_risk(llm_level: str, rule_hint: str) -> tuple[str, str | N
             "\u89c4\u5219\u4e0e\u4e0a\u4e0b\u6587\u5747\u6307\u5411\u8f83\u9ad8\u98ce\u9669\uff0c\u5df2\u5c06\u7efc\u5408\u8bc4\u7ea7\u4e0a\u8c03\u4e3a\u9ad8\u5371\u4ee5\u4fbf\u8c28\u614e\u5904\u7f6e\u3002",
         )
     if rh == 1 and rl == 0:
+        if legit and (
+            any("\u5ba2\u6237\u7aef\u5f15\u7528" in x for x in legit)
+            or len(legit) >= 2
+        ):
+            return llm_level, None
         return (
             "\u53ef\u7591",
             "\u5b58\u5728\u4e2d\u7b49\u89c4\u5219\u4fe1\u53f7\uff0c\u5efa\u8bae\u5728\u300c\u5b89\u5168\u300d\u7ed3\u8bba\u4e0b\u4ecd\u4fdd\u6301\u8b66\u60d5\u6216\u8865\u5145\u4fe1\u5934\u540e\u518d\u6d4b\u3002",

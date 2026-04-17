@@ -206,6 +206,20 @@
   .missing-box ul { margin: 8px 0 0 18px; }
   .missing-box li { margin: 4px 0; }
 
+  .legit-box {
+    display: none;
+    background: rgba(34,197,94,0.08);
+    border: 1px solid rgba(34,197,94,0.25);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .legit-box.active { display: block; }
+  .legit-box ul { margin: 8px 0 0 18px; }
+  .legit-box li { margin: 4px 0; }
+
   .summary-box {
     background: var(--card);
     border: 1px solid var(--border);
@@ -384,6 +398,7 @@
     <div class="meta-row" id="metaRow"></div>
     <div class="banner-warn" id="reconBanner"></div>
     <div class="missing-box" id="missingBox"><strong>&#20449;&#24687;&#8865;&#20805;&#24314;&#35758;</strong><ul id="missingList"></ul></div>
+    <div class="legit-box" id="legitBox"><strong>&#27491;&#24120;&#19994;&#21153;&#22330;&#26223;&#25552;&#31034;</strong> <span style="opacity:.85;font-weight:400">&#65288;&#20379;&#21442;&#32771;&#65292;&#19981;&#31561;&#20110;&#23433;&#20840;&#35748;&#23450;&#65289;</span><ul id="legitList"></ul></div>
     <div class="summary-box" id="summary"></div>
     <div class="section-title">&#35268;&#21017;&#23618;&#25688;&#35201;&#65288;URL &#31561;&#65289;</div>
     <div class="url-list" id="urlSummary"></div>
@@ -580,6 +595,20 @@ function renderResult(data) {
     mb.classList.remove('active');
   }
 
+  const lb = $('#legitBox');
+  const llist = $('#legitList');
+  llist.innerHTML = '';
+  if (data.legitimacy_hints && data.legitimacy_hints.length) {
+    lb.classList.add('active');
+    data.legitimacy_hints.forEach(x => {
+      const li = document.createElement('li');
+      li.textContent = x;
+      llist.appendChild(li);
+    });
+  } else {
+    lb.classList.remove('active');
+  }
+
   $('#summary').textContent = data.summary || '';
 
   const urlBox = $('#urlSummary');
@@ -630,7 +659,12 @@ $('#copyBtn').addEventListener('click', () => {
   let t = `\u7efc\u5408\u8bc4\u7ea7: ${d.risk_level}\n`;
   if (d.llm_risk_level !== d.risk_level) t += `AI \u539f\u59cb: ${d.llm_risk_level}\n`;
   t += `\u7f6e\u4fe1\u5ea6: ${d.confidence}%\n\u6458\u8981: ${d.summary}\n\n`;
-  if (d.reconciliation_note) t += `\u8c03\u6574\u8bf4\u660e: ${d.reconciliation_note}\n\n`;
+  if (d.reconciliation_note) t += `调整说明: ${d.reconciliation_note}\n\n`;
+  if (d.legitimacy_hints && d.legitimacy_hints.length) {
+    t += `正常场景提示:\n`;
+    d.legitimacy_hints.forEach(h => { t += `- ${h}\n`; });
+    t += `\n`;
+  }
   (d.indicators || []).forEach(i => {
     t += `[${i.source}] ${i.type} (${i.severity}): ${i.detail}\n`;
   });

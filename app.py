@@ -194,7 +194,9 @@ async def analyze(
         ZH.get("llm_default_risk", "\u53ef\u7591"),
     )
     display_level, recon_note = rules.reconcile_display_risk(
-        llm_level, rule_pack["rule_risk_hint"]
+        llm_level,
+        rule_pack["rule_risk_hint"],
+        legitimacy_hints=rule_pack.get("legitimacy_hints"),
     )
 
     merged_indicators = _tag_rule_indicators(
@@ -220,6 +222,7 @@ async def analyze(
         },
         "missing_info": missing,
         "reconciliation_note": recon_note,
+        "legitimacy_hints": rule_pack.get("legitimacy_hints") or [],
     }
 
     return {
