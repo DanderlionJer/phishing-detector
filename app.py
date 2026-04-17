@@ -1,19 +1,25 @@
 import json
 import os
-from io import BytesIO
+from datetime import datetime, timezone
+from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import Body, FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from openai import OpenAI
 from rapidocr_onnxruntime import RapidOCR
 
+import rules
+
 load_dotenv()
 
-# ---------- 初始化 ----------
-app = FastAPI(title="钓鱼邮件检测系统")
+_BASE = Path(__file__).resolve().parent
+with (_BASE / "locale_zh.json").open(encoding="utf-8") as _f:
+    ZH = json.load(_f)
+
+app = FastAPI(title=ZH["app_title"])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -30,128 +36,222 @@ client = OpenAI(
 
 MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 
-# ---------- 提示词 ----------
-SYSTEM_PROMPT = """你是企业内部的邮件安全分析专家。你的任务是分析用户提交的邮件内容，判断是否为钓鱼邮件。
+DATA_DIR = _BASE / "data"
+FEEDBACK_LOG = DATA_DIR / "feedback.jsonl"
 
-请从以下维度全面分析：
-1. 发件人地址 — 是否存在域名伪造、相似域名（如 shokz.com → sh0kz.com）
-2. 紧迫感/恐惧感 — 是否用"立即"、"账号将被冻结"等话术施压
-3. 可疑链接 — URL 与显示文字是否一致、是否使用短链接或非官方域名
-4. 索取敏感信息 — 是否要求提供密码、银行卡号、验证码、个人证件等
-5. 身份冒充 — 是否冒充公司领导、IT 部门、HR、已知品牌或合作伙伴
-6. 语言质量 — 语法错误、机翻痕迹、中英文混杂不自然
-7. 附件风险 — 是否提及可疑附件（.exe, .scr, .zip, .html 等）
-8. 社会工程学 — 利用好奇心、贪婪、同情等心理操控手段
-
-请严格以下面的 JSON 格式返回分析结果（不要返回任何其他文本）：
-
-{
-  "risk_level": "高危 或 可疑 或 安全",
-  "confidence": 85,
-  "summary": "一句话总结判断理由",
-  "indicators": [
-    {
-      "type": "指标名称",
-      "detail": "具体描述",
-      "severity": "high 或 medium 或 low"
-    }
-  ],
-  "recommendation": "给用户的下一步操作建议"
-}"""
-
-USER_PROMPT_TEMPLATE = """请分析以下邮件内容是否为钓鱼邮件：
-
----邮件内容开始---
-{content}
----邮件内容结束---"""
+SYSTEM_PROMPT = ZH["system_prompt"]
+USER_PROMPT_TEMPLATE = ZH["user_prompt_template"]
 
 
-# ---------- OCR 辅助 ----------
 def extract_text_from_image(image_bytes: bytes) -> str:
-    """用 RapidOCR 从图片中提取文字"""
     result, _ = ocr_engine(image_bytes)
     if not result:
         return ""
     return "\n".join([line[1] for line in result])
 
 
-# ---------- LLM 分析 ----------
-def analyze_with_llm(content: str) -> dict:
-    """调用 DeepSeek 分析邮件内容"""
+def _strip_json_block(raw: str) -> str:
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[1]
+        raw = raw.rsplit("```", 1)[0]
+    return raw.strip()
+
+
+def analyze_with_llm(content: str, rule_pack: dict) -> dict:
+    rule_json = json.dumps(rule_pack, ensure_ascii=False, indent=2)
     response = client.chat.completions.create(
         model=MODEL,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": USER_PROMPT_TEMPLATE.format(content=content)},
+            {
+                "role": "user",
+                "content": USER_PROMPT_TEMPLATE.format(
+                    rule_json=rule_json,
+                    content=content,
+                ),
+            },
         ],
         temperature=0.1,
         max_tokens=2000,
     )
-
     raw = response.choices[0].message.content.strip()
-
-    # 尝试解析 JSON（兼容 markdown 代码块包裹的情况）
-    if raw.startswith("```"):
-        raw = raw.split("\n", 1)[1]  # 去掉 ```json
-        raw = raw.rsplit("```", 1)[0]  # 去掉结尾 ```
-
-    return json.loads(raw)
+    return json.loads(_strip_json_block(raw))
 
 
-# ---------- API 路由 ----------
+def _merge_missing(rule_list: list[str], llm_list: list | None) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for x in (rule_list or []) + (llm_list or []):
+        s = (x or "").strip()
+        if not s or s in seen:
+            continue
+        seen.add(s)
+        out.append(s)
+    return out
+
+
+def _tag_rule_indicators(items: list[dict]) -> list[dict]:
+    return [{**i, "source": "rule"} for i in items]
+
+
+def _tag_ai_indicators(items: list[dict]) -> list[dict]:
+    return [{**i, "source": "ai"} for i in (items or [])]
+
+
+def _normalize_risk_level(raw: str | None, fallback: str) -> str:
+    s = (raw or "").strip()
+    for k in ("\u9ad8\u5371", "\u53ef\u7591", "\u5b89\u5168"):
+        if k in s:
+            return k
+    return fallback
+
+
+def build_email_blob(
+    *,
+    text: str | None,
+    body: str | None,
+    from_addr: str | None,
+    subject: str | None,
+    ocr_prefix: str,
+) -> str:
+    parts: list[str] = []
+    if ocr_prefix:
+        parts.append(ocr_prefix)
+    if from_addr and from_addr.strip():
+        parts.append(f'{ZH["label_from"]}: {from_addr.strip()}')
+    if subject and subject.strip():
+        parts.append(f'{ZH["label_subject"]}: {subject.strip()}')
+    main = (body if body and body.strip() else text) or ""
+    if main.strip():
+        parts.append(f'{ZH["label_body"]}:\n{main.strip()}')
+    return "\n".join(parts).strip()
+
+
 @app.post("/api/analyze")
 async def analyze(
     text: str = Form(default=None),
+    body: str = Form(default=None),
+    from_addr: str = Form(default=None),
+    subject: str = Form(default=None),
     image: UploadFile = File(default=None),
 ):
-    """分析邮件内容或截图"""
-    email_content = ""
-
-    # 处理图片输入
+    ocr_prefix = ""
+    has_ocr = False
     if image and image.filename:
         try:
             img_bytes = await image.read()
             ocr_text = extract_text_from_image(img_bytes)
             if ocr_text:
-                email_content += f"[从截图中识别的文字]\n{ocr_text}\n"
+                has_ocr = True
+                ocr_prefix = f'{ZH["ocr_prefix"]}\n{ocr_text}\n'
         except Exception as e:
             return JSONResponse(
                 status_code=400,
-                content={"error": f"图片识别失败: {str(e)}"},
+                content={"error": f'{ZH["err_image"]}: {str(e)}'},
             )
 
-    # 处理文字输入
-    if text and text.strip():
-        email_content += text.strip()
+    email_blob = build_email_blob(
+        text=text,
+        body=body,
+        from_addr=from_addr,
+        subject=subject,
+        ocr_prefix=ocr_prefix,
+    )
 
-    if not email_content.strip():
+    if not email_blob:
         return JSONResponse(
             status_code=400,
-            content={"error": "请提供邮件文字内容或截图"},
+            content={"error": ZH["err_input"]},
         )
 
-    # 调用 LLM 分析
+    main_for_rules = (body if body and body.strip() else text) or ""
+    if ocr_prefix and not main_for_rules.strip():
+        main_for_rules = ocr_prefix
+
+    rule_pack = rules.run_rule_engine(
+        main_for_rules,
+        from_addr=from_addr.strip() if from_addr else None,
+        subject=subject.strip() if subject else None,
+        has_ocr=has_ocr,
+    )
+
     try:
-        result = analyze_with_llm(email_content)
-        return {"success": True, "data": result}
+        llm = analyze_with_llm(email_blob, rule_pack)
     except json.JSONDecodeError:
         return JSONResponse(
             status_code=500,
-            content={"error": "分析结果解析失败，请重试"},
+            content={"error": ZH["err_json"]},
         )
     except Exception as e:
         return JSONResponse(
             status_code=500,
-            content={"error": f"分析失败: {str(e)}"},
+            content={"error": f'{ZH["err_analyze"]}: {str(e)}'},
         )
 
+    llm_level = _normalize_risk_level(
+        llm.get("risk_level"),
+        ZH.get("llm_default_risk", "\u53ef\u7591"),
+    )
+    display_level, recon_note = rules.reconcile_display_risk(
+        llm_level, rule_pack["rule_risk_hint"]
+    )
 
-# ---------- 静态文件 ----------
+    merged_indicators = _tag_rule_indicators(
+        rule_pack.get("indicators") or []
+    ) + _tag_ai_indicators(llm.get("indicators") or [])
+
+    missing = _merge_missing(
+        rule_pack.get("missing_info") or [],
+        llm.get("missing_info"),
+    )
+
+    payload = {
+        "risk_level": display_level,
+        "llm_risk_level": llm_level,
+        "confidence": llm.get("confidence"),
+        "summary": llm.get("summary"),
+        "recommendation": llm.get("recommendation"),
+        "indicators": merged_indicators,
+        "rule_summary": {
+            "rule_risk_hint": rule_pack["rule_risk_hint"],
+            "url_count": rule_pack["url_count"],
+            "urls": rule_pack["urls"][:15],
+        },
+        "missing_info": missing,
+        "reconciliation_note": recon_note,
+    }
+
+    return {
+        "success": True,
+        "data": payload,
+        "disclaimer": ZH["disclaimer"],
+    }
+
+
+@app.post("/api/feedback")
+async def feedback(payload: dict = Body(...)):
+    rec = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "payload": payload,
+    }
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        with FEEDBACK_LOG.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    except OSError as e:
+        return JSONResponse(
+            status_code=500,
+            content={"ok": False, "error": str(e)},
+        )
+    return {"ok": True}
+
+
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
 
-    print("\n  钓鱼邮件检测系统已启动")
-    print("  打开浏览器访问: http://localhost:8000\n")
+    print("\n  ", ZH["app_title"], " OK")
+    print("  http://localhost:8000\n")
     uvicorn.run(app, host="0.0.0.0", port=8000)

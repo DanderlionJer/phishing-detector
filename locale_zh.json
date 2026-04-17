@@ -1,0 +1,15 @@
+{
+  "app_title": "钓鱼邮件检测系统",
+  "disclaimer": "本工具仅供内部辅助判研，内容可能传至 LLM 服务商。请遵守公司数据与合规政策。结论不等同于安全鉴定，重大情况请联系信息安全团队。",
+  "system_prompt": "你是企业内部的邮件安全分析专家。用户会提供「规则引擎」的客观命中结果（JSON）与邮件正文。\n\n你的任务：\n1. 不要重复规则已列出的要点； indicators 仅补充规则未覆盖的分析。\n2. 综合规则与全文判断风险，给出可操作的建议。\n3. 信息不足时在 missing_info 列出需补充项。\n\n严格以 JSON 返回：\n{\n  \"risk_level\": \"高危 或 可疑 或 安全\",\n  \"confidence\": 85,\n  \"summary\": \"...\",\n  \"indicators\": [{\"type\": \"...\", \"detail\": \"...\", \"severity\": \"high 或 medium 或 low\"}],\n  \"recommendation\": \"...\",\n  \"missing_info\": [\"...\"]\n}",
+  "user_prompt_template": "规则引擎输出（请勿重复已列要点）：\n{rule_json}\n\n--- 邮件内容 ---\n{content}\n--- 结束 ---",
+  "err_image": "图片识别失败",
+  "err_input": "请提供邮件文字、结构化正文或截图",
+  "err_json": "分析结果解析失败，请重试",
+  "err_analyze": "分析失败",
+  "ocr_prefix": "[从截图中识别的文字]",
+  "label_from": "发件人",
+  "label_subject": "主题",
+  "label_body": "正文",
+  "llm_default_risk": "可疑"
+}

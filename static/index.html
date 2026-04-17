@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>钓鱼邮件检测 - 企业内部</title>
+<title>&#38035;&#40065;&#37038;&#20214;&#26816;&#27979;</title>
 <style>
   :root {
     --bg: #0f172a;
@@ -15,6 +15,7 @@
     --danger: #ef4444;
     --warning: #f59e0b;
     --safe: #22c55e;
+    --rule: #a78bfa;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -22,9 +23,9 @@
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
+    display: flex;
+    flex-direction: column;
   }
-
-  /* Header */
   .header {
     background: var(--card);
     border-bottom: 1px solid var(--border);
@@ -32,34 +33,36 @@
     display: flex;
     align-items: center;
     gap: 12px;
+    flex-shrink: 0;
   }
   .header svg { width: 28px; height: 28px; fill: var(--accent); }
   .header h1 { font-size: 18px; font-weight: 600; }
   .header span { color: var(--text-dim); font-size: 13px; margin-left: auto; }
 
-  /* Main */
   .container {
-    max-width: 720px;
-    margin: 32px auto;
-    padding: 0 16px;
+    max-width: 760px;
+    margin: 28px auto;
+    padding: 0 16px 48px;
+    flex: 1;
   }
 
-  /* Tabs */
-  .tabs {
+  .mode-tabs, .tabs {
     display: flex;
     gap: 2px;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     background: var(--card);
     border-radius: 10px;
     padding: 4px;
+    flex-wrap: wrap;
   }
   .tab {
     flex: 1;
-    padding: 10px;
+    min-width: 100px;
+    padding: 10px 8px;
     text-align: center;
     cursor: pointer;
     border-radius: 8px;
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text-dim);
     transition: all .2s;
     border: none;
@@ -70,18 +73,35 @@
     color: #fff;
   }
 
-  /* Input Areas */
   .input-panel { display: none; }
   .input-panel.active { display: block; }
 
+  .field { margin-bottom: 12px; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .field input {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 14px;
+  }
+  .field input:focus { outline: none; border-color: var(--accent); }
+
   textarea {
     width: 100%;
-    height: 220px;
+    height: 200px;
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 10px;
     color: var(--text);
-    padding: 16px;
+    padding: 14px;
     font-size: 14px;
     line-height: 1.6;
     resize: vertical;
@@ -90,11 +110,10 @@
   textarea:focus { outline: none; border-color: var(--accent); }
   textarea::placeholder { color: var(--text-dim); }
 
-  /* Drop Zone */
   .dropzone {
     border: 2px dashed var(--border);
     border-radius: 10px;
-    padding: 48px 24px;
+    padding: 40px 20px;
     text-align: center;
     cursor: pointer;
     transition: all .2s;
@@ -104,266 +123,305 @@
     border-color: var(--accent);
     background: rgba(59,130,246,0.05);
   }
-  .dropzone svg { width: 48px; height: 48px; fill: var(--text-dim); margin-bottom: 12px; }
-  .dropzone p { color: var(--text-dim); font-size: 14px; margin-top: 8px; }
-  .dropzone .hint { font-size: 12px; color: var(--text-dim); opacity: 0.6; margin-top: 4px; }
+  .dropzone svg { width: 44px; height: 44px; fill: var(--text-dim); margin-bottom: 10px; }
+  .dropzone p { color: var(--text-dim); font-size: 14px; margin-top: 6px; }
+  .dropzone .hint { font-size: 12px; opacity: 0.65; margin-top: 4px; }
 
-  /* Image Preview */
-  .preview-wrap {
-    display: none;
-    margin-top: 12px;
-    position: relative;
-  }
+  .preview-wrap { display: none; margin-top: 12px; position: relative; }
   .preview-wrap img {
     max-width: 100%;
-    max-height: 300px;
+    max-height: 280px;
     border-radius: 8px;
     border: 1px solid var(--border);
   }
   .preview-wrap .remove-btn {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: rgba(0,0,0,0.7);
-    color: #fff;
-    border: none;
-    border-radius: 50%;
-    width: 28px;
-    height: 28px;
-    cursor: pointer;
-    font-size: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: absolute; top: 8px; right: 8px;
+    background: rgba(0,0,0,0.75); color: #fff; border: none;
+    border-radius: 50%; width: 28px; height: 28px; cursor: pointer;
+    font-size: 16px; display: flex; align-items: center; justify-content: center;
   }
 
-  /* Submit */
   .submit-btn {
-    width: 100%;
-    margin-top: 16px;
-    padding: 14px;
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    border-radius: 10px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity .2s;
+    width: 100%; margin-top: 14px; padding: 14px;
+    background: var(--accent); color: #fff; border: none;
+    border-radius: 10px; font-size: 15px; font-weight: 600;
+    cursor: pointer; transition: opacity .2s;
   }
-  .submit-btn:hover { opacity: 0.9; }
-  .submit-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
+  .submit-btn:hover { opacity: 0.92; }
+  .submit-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-  /* Loading */
-  .loading {
-    display: none;
-    text-align: center;
-    padding: 32px;
-  }
+  .loading { display: none; text-align: center; padding: 28px; }
   .loading.active { display: block; }
   .spinner {
-    width: 36px; height: 36px;
+    width: 34px; height: 34px;
     border: 3px solid var(--border);
     border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
-    margin: 0 auto 12px;
+    margin: 0 auto 10px;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   .loading p { color: var(--text-dim); font-size: 14px; }
 
-  /* Result */
-  .result {
-    display: none;
-    margin-top: 24px;
-    animation: fadeIn 0.3s;
-  }
+  .result { display: none; margin-top: 22px; animation: fadeIn 0.3s; }
   .result.active { display: block; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; } }
 
   .risk-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 20px;
-    border-radius: 10px;
-    font-size: 20px;
-    font-weight: 700;
-    margin-bottom: 16px;
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 11px 18px; border-radius: 10px;
+    font-size: 19px; font-weight: 700; margin-bottom: 12px;
   }
   .risk-badge.high { background: rgba(239,68,68,0.15); color: var(--danger); border: 1px solid rgba(239,68,68,0.3); }
   .risk-badge.medium { background: rgba(245,158,11,0.15); color: var(--warning); border: 1px solid rgba(245,158,11,0.3); }
   .risk-badge.safe { background: rgba(34,197,94,0.15); color: var(--safe); border: 1px solid rgba(34,197,94,0.3); }
 
-  .confidence {
+  .meta-row { font-size: 13px; color: var(--text-dim); margin-bottom: 12px; line-height: 1.5; }
+  .meta-row strong { color: var(--text); }
+
+  .banner-warn {
+    display: none;
+    background: rgba(245,158,11,0.12);
+    border: 1px solid rgba(245,158,11,0.35);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    color: var(--warning);
+    line-height: 1.5;
+  }
+  .banner-warn.active { display: block; }
+
+  .missing-box {
+    display: none;
+    background: rgba(59,130,246,0.08);
+    border: 1px solid rgba(59,130,246,0.25);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
     font-size: 13px;
     color: var(--text-dim);
-    margin-bottom: 16px;
   }
-  .confidence strong { color: var(--text); }
+  .missing-box.active { display: block; }
+  .missing-box ul { margin: 8px 0 0 18px; }
+  .missing-box li { margin: 4px 0; }
 
   .summary-box {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 10px;
-    padding: 16px;
-    margin-bottom: 16px;
+    padding: 14px;
+    margin-bottom: 14px;
     font-size: 14px;
-    line-height: 1.6;
+    line-height: 1.65;
   }
 
   .section-title {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     margin: 16px 0 8px;
     color: var(--text-dim);
+    text-transform: none;
   }
 
   .indicator {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 12px 16px;
+    padding: 11px 14px;
     margin-bottom: 8px;
     display: flex;
-    gap: 12px;
+    gap: 10px;
     align-items: flex-start;
   }
   .indicator .dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    margin-top: 6px;
-    flex-shrink: 0;
+    width: 8px; height: 8px; border-radius: 50%;
+    margin-top: 5px; flex-shrink: 0;
   }
   .indicator .dot.high { background: var(--danger); }
   .indicator .dot.medium { background: var(--warning); }
   .indicator .dot.low { background: var(--safe); }
-  .indicator .ind-type {
-    font-size: 13px;
-    font-weight: 600;
-    margin-bottom: 2px;
+  .indicator .src {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-top: 2px;
   }
-  .indicator .ind-detail {
-    font-size: 13px;
-    color: var(--text-dim);
-    line-height: 1.5;
-  }
+  .indicator .src.rule { background: rgba(167,139,250,0.2); color: var(--rule); }
+  .indicator .src.ai { background: rgba(59,130,246,0.15); color: var(--accent); }
+  .indicator .ind-type { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .indicator .ind-detail { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+
+  .url-list { font-size: 12px; color: var(--text-dim); word-break: break-all; }
+  .url-list div { margin: 4px 0; padding: 6px 8px; background: rgba(15,23,42,0.5); border-radius: 6px; }
 
   .recommendation {
     background: rgba(59,130,246,0.08);
     border: 1px solid rgba(59,130,246,0.2);
     border-radius: 10px;
-    padding: 16px;
-    margin-top: 16px;
+    padding: 14px;
+    margin-top: 14px;
     font-size: 14px;
-    line-height: 1.6;
+    line-height: 1.65;
   }
 
-  .reset-btn {
-    width: 100%;
-    margin-top: 16px;
-    padding: 12px;
-    background: transparent;
-    color: var(--text-dim);
-    border: 1px solid var(--border);
+  .actions {
+    display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap;
+  }
+  .actions button {
+    flex: 1;
+    min-width: 120px;
+    padding: 11px;
     border-radius: 10px;
     font-size: 14px;
     cursor: pointer;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
   }
-  .reset-btn:hover { border-color: var(--text-dim); }
+  .actions button.primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .actions button:hover { opacity: 0.9; }
+
+  .feedback-row { margin-top: 12px; font-size: 13px; color: var(--text-dim); }
+  .feedback-row button {
+    margin-right: 8px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .feedback-row button:hover { border-color: var(--accent); }
 
   .error-msg {
     display: none;
     background: rgba(239,68,68,0.1);
     border: 1px solid rgba(239,68,68,0.3);
     border-radius: 10px;
-    padding: 16px;
-    margin-top: 16px;
+    padding: 14px;
+    margin-top: 14px;
     color: var(--danger);
     font-size: 14px;
   }
   .error-msg.active { display: block; }
+
+  .footer-note {
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
 </style>
 </head>
 <body>
 
 <div class="header">
   <svg viewBox="0 0 24 24"><path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5zm-1 14l-4-4 1.41-1.41L11 13.17l6.59-6.59L19 8l-8 8z"/></svg>
-  <h1>钓鱼邮件检测</h1>
-  <span>企业内部 - 信息安全</span>
+  <h1>&#38035;&#40065;&#37038;&#20214;&#26816;&#27979;</h1>
+  <span>&#20225;&#19994;&#20869;&#37096; &middot; &#35268;&#21017; + AI</span>
 </div>
 
 <div class="container">
-  <!-- Tabs -->
-  <div class="tabs">
-    <button class="tab active" data-tab="text">粘贴邮件文字</button>
-    <button class="tab" data-tab="image">上传邮件截图</button>
+  <div class="mode-tabs">
+    <button type="button" class="tab active" data-mode="quick">&#24555;&#36895;&#31896;&#36148;</button>
+    <button type="button" class="tab" data-mode="structured">&#32467;&#26500;&#21270;&#36755;&#20837;</button>
+    <button type="button" class="tab" data-mode="image">&#37038;&#20214;&#25130;&#22270;</button>
   </div>
 
-  <!-- Text Input -->
-  <div class="input-panel active" id="panel-text">
-    <textarea id="emailText" placeholder="将邮件全文粘贴到这里...&#10;&#10;建议包含：发件人地址、邮件主题、正文内容、链接等信息"></textarea>
+  <div class="input-panel active" id="panel-quick">
+    <textarea id="emailText" placeholder="&#23558;&#37038;&#20214;&#20840;&#25991;&#31896;&#36148;&#21040;&#27492;&#65288;&#21487;&#21547;&#21457;&#20214;&#20154;&#12289;&#20027;&#39064;&#12289;&#27491;&#25991;&#65289;"></textarea>
   </div>
 
-  <!-- Image Input -->
+  <div class="input-panel" id="panel-structured">
+    <div class="field">
+      <label for="fromAddr">&#21457;&#20214;&#20154;</label>
+      <input type="text" id="fromAddr" placeholder="&#20363;&#65306; IT Support &lt;support@company.com&gt;">
+    </div>
+    <div class="field">
+      <label for="subj">&#20027;&#39064;</label>
+      <input type="text" id="subj" placeholder="&#37038;&#20214;&#20027;&#39064;">
+    </div>
+    <div class="field">
+      <label for="bodyText">&#27491;&#25991;</label>
+      <textarea id="bodyText" style="height:160px" placeholder="&#27491;&#25991;&#20869;&#23481;&#12289;&#38142;&#25509;&#31561;"></textarea>
+    </div>
+  </div>
+
   <div class="input-panel" id="panel-image">
     <div class="dropzone" id="dropzone">
       <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
-      <p>拖拽图片到这里，或点击选择文件</p>
-      <p class="hint">也可以直接 Ctrl+V 粘贴截图</p>
+      <p>&#25302;&#25341;&#22270;&#29255;&#65292;&#25110;&#28857;&#20987;&#36873;&#25321;</p>
+      <p class="hint">Ctrl+V &#31896;&#36148;&#25130;&#22270;</p>
       <input type="file" id="fileInput" accept="image/*" hidden>
     </div>
     <div class="preview-wrap" id="previewWrap">
-      <img id="previewImg" alt="预览">
-      <button class="remove-btn" id="removeBtn">&times;</button>
+      <img id="previewImg" alt="">
+      <button type="button" class="remove-btn" id="removeBtn">&times;</button>
     </div>
   </div>
 
-  <!-- Submit -->
-  <button class="submit-btn" id="submitBtn">开始检测</button>
+  <button type="button" class="submit-btn" id="submitBtn">&#24320;&#22987;&#26816;&#27979;</button>
 
-  <!-- Loading -->
   <div class="loading" id="loading">
     <div class="spinner"></div>
-    <p>正在分析邮件内容，请稍候...</p>
+    <p>&#27491;&#22312;&#32467;&#21512;&#35268;&#21017;&#24341;&#25806;&#19982; AI &#20998;&#26512;&#8230;</p>
   </div>
-
-  <!-- Error -->
   <div class="error-msg" id="errorMsg"></div>
 
-  <!-- Result -->
   <div class="result" id="result">
     <div class="risk-badge" id="riskBadge"></div>
-    <div class="confidence" id="confidence"></div>
+    <div class="meta-row" id="metaRow"></div>
+    <div class="banner-warn" id="reconBanner"></div>
+    <div class="missing-box" id="missingBox"><strong>&#20449;&#24687;&#8865;&#20805;&#24314;&#35758;</strong><ul id="missingList"></ul></div>
     <div class="summary-box" id="summary"></div>
-    <div class="section-title">检测到的风险指标</div>
+    <div class="section-title">&#35268;&#21017;&#23618;&#25688;&#35201;&#65288;URL &#31561;&#65289;</div>
+    <div class="url-list" id="urlSummary"></div>
+    <div class="section-title">&#39118;&#38505;&#25351;&#26631;&#65288;&#35268;&#21017; + AI&#65289;</div>
     <div id="indicators"></div>
     <div class="recommendation" id="recommendation"></div>
-    <button class="reset-btn" id="resetBtn">重新检测</button>
+    <div class="actions">
+      <button type="button" class="primary" id="copyBtn">&#22797;&#21046;&#25253;&#21578;</button>
+      <button type="button" id="resetBtn">&#37325;&#26032;&#26816;&#27979;</button>
+    </div>
+    <div class="feedback-row" id="feedbackRow">
+      <span>&#32467;&#35770;&#20934;&#30830;&#21527;&#65311;</span>
+      <button type="button" data-fb="ok">&#20934;&#30830;</button>
+      <button type="button" data-fb="wrong">&#19981;&#20934;</button>
+    </div>
   </div>
+
+  <p class="footer-note" id="footerDisclaimer"></p>
 </div>
 
 <script>
 const $ = s => document.querySelector(s);
 let selectedFile = null;
+let currentMode = 'quick';
+let lastResponse = null;
 
-// --- Tab switching ---
-document.querySelectorAll('.tab').forEach(tab => {
+document.querySelectorAll('.mode-tabs .tab').forEach(tab => {
   tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.mode-tabs .tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.input-panel').forEach(p => p.classList.remove('active'));
     tab.classList.add('active');
-    $(`#panel-${tab.dataset.tab}`).classList.add('active');
+    currentMode = tab.dataset.mode;
+    $(`#panel-${currentMode}`).classList.add('active');
   });
 });
 
-// --- Dropzone ---
 const dropzone = $('#dropzone');
 const fileInput = $('#fileInput');
-
 dropzone.addEventListener('click', () => fileInput.click());
 dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
 dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
@@ -376,18 +434,17 @@ fileInput.addEventListener('change', () => {
   if (fileInput.files.length) handleFile(fileInput.files[0]);
 });
 
-// --- Clipboard paste (Ctrl+V) ---
 document.addEventListener('paste', e => {
   const items = e.clipboardData?.items;
   if (!items) return;
   for (const item of items) {
     if (item.type.startsWith('image/')) {
       e.preventDefault();
-      // Switch to image tab
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.mode-tabs .tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.input-panel').forEach(p => p.classList.remove('active'));
-      document.querySelector('[data-tab="image"]').classList.add('active');
+      document.querySelector('[data-mode="image"]').classList.add('active');
       $('#panel-image').classList.add('active');
+      currentMode = 'image';
       handleFile(item.getAsFile());
       return;
     }
@@ -413,107 +470,205 @@ $('#removeBtn').addEventListener('click', () => {
   dropzone.style.display = 'block';
 });
 
-// --- Submit ---
+function buildFormData() {
+  const fd = new FormData();
+  if (currentMode === 'quick') {
+    const t = $('#emailText').value.trim();
+    if (t) fd.append('text', t);
+  } else if (currentMode === 'structured') {
+    const f = $('#fromAddr').value.trim();
+    const s = $('#subj').value.trim();
+    const b = $('#bodyText').value.trim();
+    if (f) fd.append('from_addr', f);
+    if (s) fd.append('subject', s);
+    if (b) fd.append('body', b);
+  }
+  if (selectedFile) fd.append('image', selectedFile);
+  return fd;
+}
+
+function validateForm(fd) {
+  if (currentMode === 'quick' && !$('#emailText').value.trim() && !selectedFile) {
+    showError('&#35831;&#31896;&#36148;&#37038;&#20214;&#20869;&#23481;&#25110;&#19978;&#20256;&#25130;&#22270;');
+    return false;
+  }
+  if (currentMode === 'structured') {
+    const b = $('#bodyText').value.trim();
+    if (!b && !selectedFile) {
+      showError('&#35831;&#22635;&#20889;&#27491;&#25991;&#25110;&#19978;&#20256;&#25130;&#22270;');
+      return false;
+    }
+  }
+  if (currentMode === 'image' && !selectedFile) {
+    showError('&#35831;&#19978;&#20256;&#25110;&#31896;&#36148;&#25130;&#22270;');
+    return false;
+  }
+  return true;
+}
+
 $('#submitBtn').addEventListener('click', async () => {
-  const text = $('#emailText').value.trim();
-  const activeTab = document.querySelector('.tab.active').dataset.tab;
+  const fd = buildFormData();
+  if (!validateForm(fd)) return;
 
-  if (activeTab === 'text' && !text) {
-    showError('请先粘贴邮件内容');
-    return;
-  }
-  if (activeTab === 'image' && !selectedFile) {
-    showError('请先上传或粘贴邮件截图');
-    return;
-  }
-
-  // Prepare form data
-  const formData = new FormData();
-  if (text) formData.append('text', text);
-  if (selectedFile) formData.append('image', selectedFile);
-
-  // Show loading
-  $('#submitBtn').style.display = 'none';
+  $('#submitBtn').disabled = true;
   $('#loading').classList.add('active');
   $('#result').classList.remove('active');
   $('#errorMsg').classList.remove('active');
 
   try {
-    const resp = await fetch('/api/analyze', { method: 'POST', body: formData });
-    const data = await resp.json();
+    const resp = await fetch('/api/analyze', { method: 'POST', body: fd });
+    const json = await resp.json();
+    lastResponse = json;
+    if (json.disclaimer) $('#footerDisclaimer').textContent = json.disclaimer;
 
-    if (!resp.ok || data.error) {
-      showError(data.error || '分析失败，请重试');
+    if (!resp.ok || json.error) {
+      showError(json.error || '&#20998;&#26512;&#22833;&#36133;');
       return;
     }
-
-    renderResult(data.data);
+    renderResult(json.data);
   } catch (err) {
-    showError('网络错误，请检查服务是否运行');
+    showError('&#32593;&#32476;&#38169;&#35823;&#65292;&#35831;&#30830;&#35748;&#26381;&#21153;&#24050;&#21551;&#21160;');
   } finally {
     $('#loading').classList.remove('active');
-    $('#submitBtn').style.display = 'block';
+    $('#submitBtn').disabled = false;
   }
 });
 
 function showError(msg) {
-  $('#errorMsg').textContent = msg;
+  $('#errorMsg').innerHTML = msg;
   $('#errorMsg').classList.add('active');
-  $('#loading').classList.remove('active');
-  $('#submitBtn').style.display = 'block';
 }
 
-// --- Render result ---
 function renderResult(data) {
-  // Risk badge
   const badge = $('#riskBadge');
   const riskMap = {
-    '高危': { cls: 'high', icon: '!!', label: '高危 - 钓鱼邮件' },
-    '可疑': { cls: 'medium', icon: '!', label: '可疑 - 需要警惕' },
-    '安全': { cls: 'safe', icon: '\u2713', label: '安全 - 未发现风险' },
+    '\u9ad8\u5371': { cls: 'high', label: '\u9ad8\u5371 \u00b7 \u6309\u9493\u9c7c\u5904\u7f6e' },
+    '\u53ef\u7591': { cls: 'medium', label: '\u53ef\u7591 \u00b7 \u4fdd\u6301\u8b66\u60d5' },
+    '\u5b89\u5168': { cls: 'safe', label: '\u6682\u672a\u53d1\u73b0\u660e\u663e\u9493\u9c7c\u7279\u5f81' },
   };
-  const risk = riskMap[data.risk_level] || riskMap['可疑'];
-  badge.className = `risk-badge ${risk.cls}`;
-  badge.textContent = risk.label;
+  const r = riskMap[data.risk_level] || riskMap['\u53ef\u7591'];
+  badge.className = 'risk-badge ' + r.cls;
+  badge.textContent = r.label;
 
-  // Confidence
-  $('#confidence').innerHTML = `置信度: <strong>${data.confidence}%</strong>`;
+  let meta = `\u7f6e\u4fe1\u5ea6\uff1a<strong>${data.confidence ?? '--'}%</strong>`;
+  if (data.llm_risk_level && data.llm_risk_level !== data.risk_level) {
+    meta += ` &nbsp;\u00b7&nbsp; AI \u539f\u59cb\u8bc4\u7ea7\uff1a<strong>${data.llm_risk_level}</strong>`;
+  }
+  meta += ` &nbsp;\u00b7&nbsp; \u89c4\u5219\u5c42\u63d0\u793a\uff1a<strong>${data.rule_summary?.rule_risk_hint || '--'}</strong>`;
+  meta += ` &nbsp;\u00b7&nbsp; URL \u6570\uff1a<strong>${data.rule_summary?.url_count ?? 0}</strong>`;
+  $('#metaRow').innerHTML = meta;
 
-  // Summary
-  $('#summary').textContent = data.summary;
+  const rb = $('#reconBanner');
+  if (data.reconciliation_note) {
+    rb.textContent = data.reconciliation_note;
+    rb.classList.add('active');
+  } else {
+    rb.classList.remove('active');
+  }
 
-  // Indicators
-  const indWrap = $('#indicators');
-  indWrap.innerHTML = '';
-  if (data.indicators && data.indicators.length) {
-    data.indicators.forEach(ind => {
-      indWrap.innerHTML += `
-        <div class="indicator">
-          <div class="dot ${ind.severity || 'medium'}"></div>
-          <div>
-            <div class="ind-type">${ind.type}</div>
-            <div class="ind-detail">${ind.detail}</div>
-          </div>
-        </div>`;
+  const mb = $('#missingBox');
+  const ml = $('#missingList');
+  ml.innerHTML = '';
+  if (data.missing_info && data.missing_info.length) {
+    mb.classList.add('active');
+    data.missing_info.forEach(m => {
+      const li = document.createElement('li');
+      li.textContent = m;
+      ml.appendChild(li);
+    });
+  } else {
+    mb.classList.remove('active');
+  }
+
+  $('#summary').textContent = data.summary || '';
+
+  const urlBox = $('#urlSummary');
+  urlBox.innerHTML = '';
+  const urls = data.rule_summary?.urls || [];
+  if (!urls.length) {
+    urlBox.textContent = '\u672a\u68c0\u6d4b\u5230\u94fe\u63a5\u6216\u65e0\u989d\u5916 URL \u5143\u6570\u636e\u3002';
+  } else {
+    urls.forEach(u => {
+      const d = document.createElement('div');
+      const hits = (u.hits && u.hits.length) ? ` [\u547d\u4e2d: ${u.hits.join(', ')}]` : '';
+      d.textContent = u.url + hits;
+      urlBox.appendChild(d);
     });
   }
 
-  // Recommendation
-  $('#recommendation').textContent = data.recommendation;
+  const indWrap = $('#indicators');
+  indWrap.innerHTML = '';
+  (data.indicators || []).forEach(ind => {
+    const src = ind.source === 'rule' ? 'rule' : 'ai';
+    const srcLabel = src === 'rule' ? 'RULE' : 'AI';
+    indWrap.innerHTML += `
+      <div class="indicator">
+        <span class="dot ${ind.severity || 'medium'}"></span>
+        <span class="src ${src}">${srcLabel}</span>
+        <div>
+          <div class="ind-type">${escapeHtml(ind.type || '')}</div>
+          <div class="ind-detail">${escapeHtml(ind.detail || '')}</div>
+        </div>
+      </div>`;
+  });
 
-  // Show
+  $('#recommendation').textContent = data.recommendation || '';
+
   $('#result').classList.add('active');
   $('#errorMsg').classList.remove('active');
 }
 
-// --- Reset ---
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+$('#copyBtn').addEventListener('click', () => {
+  if (!lastResponse || !lastResponse.data) return;
+  const d = lastResponse.data;
+  let t = `\u7efc\u5408\u8bc4\u7ea7: ${d.risk_level}\n`;
+  if (d.llm_risk_level !== d.risk_level) t += `AI \u539f\u59cb: ${d.llm_risk_level}\n`;
+  t += `\u7f6e\u4fe1\u5ea6: ${d.confidence}%\n\u6458\u8981: ${d.summary}\n\n`;
+  if (d.reconciliation_note) t += `\u8c03\u6574\u8bf4\u660e: ${d.reconciliation_note}\n\n`;
+  (d.indicators || []).forEach(i => {
+    t += `[${i.source}] ${i.type} (${i.severity}): ${i.detail}\n`;
+  });
+  t += `\n\u5efa\u8bae: ${d.recommendation}\n`;
+  navigator.clipboard.writeText(t).catch(() => {});
+});
+
 $('#resetBtn').addEventListener('click', () => {
   $('#result').classList.remove('active');
   $('#emailText').value = '';
+  $('#fromAddr').value = '';
+  $('#subj').value = '';
+  $('#bodyText').value = '';
   selectedFile = null;
   fileInput.value = '';
   $('#previewWrap').style.display = 'none';
   dropzone.style.display = 'block';
+  lastResponse = null;
+});
+
+document.querySelectorAll('#feedbackRow button').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    if (!lastResponse || !lastResponse.data) return;
+    const d = lastResponse.data;
+    try {
+      await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind: btn.dataset.fb,
+          shown_risk: d.risk_level,
+          llm_risk: d.llm_risk_level,
+        }),
+      });
+      btn.textContent = '\u5df2\u8bb0\u5f55';
+      btn.disabled = true;
+    } catch (_) {}
+  });
 });
 </script>
 </body>
