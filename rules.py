@@ -26,8 +26,16 @@ SHORTENER_HOSTS = frozenset(
 )
 
 # English urgency: avoid legal-footer false positives (e.g. immediately delete)
+# ZH urgency: account threats, forced verify or login, 24h plus consequence words; not casual reply-soon wording.
 URGENCY_ZH_PATTERN = (
-    r"\u7acb\u5373|\u9a6c\u4e0a|\u5c3d\u5feb|24\s*\u5c0f\u65f6\u5185|\u4eca\u65e5\u5185|\u9650\u65f6|\u903e\u671f|\u5c06\u88ab\u51bb\u7ed3|\u6c38\u4e45\u505c\u7528|\u5c01\u53f7",
+    r"(?:"
+    r"\u5c06\u88ab\u51bb\u7ed3|\u6c38\u4e45\u505c\u7528|\u5c01\u53f7|"
+    r"24\s*\u5c0f\u65f6\u5185(?:\u672a|\u5426\u5219|\u82e5\u4e0d|\u5982\u4e0d)|"
+    r"(?:\u8bf7|\u52a1\u5fc5|\u5fc5\u987b|\u70e6\u8bf7)?(?:\u7acb\u5373|\u9a6c\u4e0a|\u7acb\u523b)"
+    r"(?:\u70b9\u51fb|\u9a8c\u8bc1|\u6838\u5b9e|\u767b\u5f55|\u767b\u9646|\u529e\u7406|\u64cd\u4f5c)(?!\u5230|\u590d\u4ef6)|"
+    r"\u4eca\u65e5\u5185(?:\u5fc5\u987b|\u52a1\u5fc5).{0,8}(?:\u9a8c\u8bc1|\u70b9\u51fb|\u767b\u5f55|\u529e\u7406)|"
+    r"\u903e\u671f(?:\u4ecd\u672a|\u4e14\u672a).{0,8}(?:\u9a8c\u8bc1|\u767b\u5f55|\u7f34\u8d39|\u6fc0\u6d3b)"
+    r")",
     "urgency_threat_zh",
 )
 URGENCY_EN_PATTERN = (
@@ -202,7 +210,7 @@ def _keyword_indicators(text: str) -> list[dict[str, Any]]:
         out.append(
             {
                 "type": "\u7d27\u8feb/\u6050\u5413\u8bdd\u672f",
-                "detail": "\u6b63\u6587\u51fa\u73b0\u5236\u9020\u7d27\u8feb\u611f\u6216\u5a01\u80c1\u7684\u7528\u8bed\u3002",
+                "detail": "\u547d\u4e2d\u4e2d\u6587\u7d27\u8feb/\u6050\u5413\u6a21\u5f0f\uff08\u5982\u5e10\u53f7\u5c06\u51bb\u7ed3\u3001\u5c01\u53f7\u300124h\u5185\u672a\u5904\u7406\u3001\u7acb\u5373/\u9a6c\u4e0a\u8981\u6c42\u70b9\u51fb\u6216\u9a8c\u8bc1\u767b\u5f55\u7b49\uff09\uff0c\u5df2\u6392\u9664\u5e38\u89c1\u300c\u5c3d\u5feb\u56de\u590d\u300d\u7c7b\u65e5\u5e38\u5546\u52a1\u7528\u8bed\u3002",
                 "severity": "medium",
             }
         )
