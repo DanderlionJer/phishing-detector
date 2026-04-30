@@ -19,6 +19,40 @@ _BASE = Path(__file__).resolve().parent
 with (_BASE / "locale_zh.json").open(encoding="utf-8") as _f:
     ZH = json.load(_f)
 
+
+def _markdown_body_after_yaml_frontmatter(raw: str) -> str:
+    lines = raw.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return raw.strip()
+    i = 1
+    while i < len(lines) and lines[i].strip() != "---":
+        i += 1
+    if i >= len(lines):
+        return raw.strip()
+    return "\n".join(lines[i + 1 :]).strip()
+
+
+def _load_optional_scam_skill() -> str:
+    path = _BASE / "skills" / "security-awareness" / "SKILL.md"
+    if not path.is_file():
+        return ""
+    try:
+        return _markdown_body_after_yaml_frontmatter(
+            path.read_text(encoding="utf-8")
+        )
+    except OSError:
+        return ""
+
+
+_SCAM_SKILL_BODY = _load_optional_scam_skill()
+_SYSTEM_PROMPT_BASE = ZH["system_prompt"]
+_SCAM_PRE = (ZH.get("scam_skill_preamble") or "").strip()
+SYSTEM_PROMPT = _SYSTEM_PROMPT_BASE
+if _SCAM_SKILL_BODY:
+    if _SCAM_PRE:
+        SYSTEM_PROMPT += "\n\n" + _SCAM_PRE
+    SYSTEM_PROMPT += "\n\n" + _SCAM_SKILL_BODY
+
 app = FastAPI(title=ZH["app_title"])
 app.add_middleware(
     CORSMiddleware,
@@ -39,7 +73,6 @@ MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 DATA_DIR = _BASE / "data"
 FEEDBACK_LOG = DATA_DIR / "feedback.jsonl"
 
-SYSTEM_PROMPT = ZH["system_prompt"]
 USER_PROMPT_TEMPLATE = ZH["user_prompt_template"]
 
 

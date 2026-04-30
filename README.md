@@ -51,12 +51,17 @@ phishing-detector/
 ├── app.py              # FastAPI：/api/analyze、/api/feedback、静态页
 ├── rules.py            # 确定性规则与启发式
 ├── locale_zh.json      # 中文文案与系统提示（UTF-8）
+├── skills/             # 可选：附加 LLM 研判框架（见 security-awareness）
+│   ├── THIRD_PARTY.txt
+│   └── security-awareness/SKILL.md
 ├── requirements.txt
 ├── .env.example
 ├── .gitignore          # 含 data/
 └── static/
     └── index.html
 ```
+
+`skills/security-awareness/SKILL.md` 来自 [1Password SCAM](https://github.com/1Password/SCAM)（MIT），启动时若文件存在，会去掉 YAML 头后追加到 DeepSeek 的 system 提示词中。删除该文件即恢复为仅使用 `locale_zh.json` 内的 `system_prompt`。
 
 ## 注意事项
 
